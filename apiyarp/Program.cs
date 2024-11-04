@@ -4,13 +4,12 @@ using Microsoft.Extensions.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add YARP to the services
 builder.Services.AddReverseProxy()
-    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+    .AddConfigFilter<EnvConfigFilter>();
 
 var app = builder.Build();
 
-// Create an endpoint to return the application name and instance ID
 app.MapGet("/instance", () =>
 {
     string instanceId = Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID") ?? "Instance ID not found";
@@ -18,7 +17,6 @@ app.MapGet("/instance", () =>
     return Results.Ok(new { source = appName, InstanceId = instanceId });
 });
 
-// Enable YARP middleware
 app.MapReverseProxy();
 
 app.Run();
