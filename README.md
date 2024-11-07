@@ -88,3 +88,4 @@ if __name__ == '__main__':
         print("\nShutting down both APIs gracefully...")
         if api1_process:
             api1_process.terminate()
+
