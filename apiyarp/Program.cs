@@ -3,36 +3,43 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Remove logging setup entirely
-builder.Logging.ClearProviders(); // Clears logging providers without adding Console/Debug
+// Rensa och stäng av onödig loggning
+builder.Logging.ClearProviders(); // Tar bort alla loggningsleverantörer
 
+// Ladda YARP-konfiguration och konfigurera proxy
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
     .AddConfigFilter<EnvConfigFilter>();
 
-// Add Authentication (e.g., OpenID Connect/JWT Bearer)
+// Lägg till autentisering (JWT och OpenID Connect)
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.Authority = Environment.GetEnvironmentVariable("AUTH_AUTHORITY") ?? throw new InvalidOperationException("AUTH_AUTHORITY not set");
-        options.Audience = Environment.GetEnvironmentVariable("AUTH_AUDIENCE") ?? throw new InvalidOperationException("AUTH_AUDIENCE not set");
+        options.Authority = Environment.GetEnvironmentVariable("AUTH_AUTHORITY") 
+                            ?? throw new InvalidOperationException("AUTH_AUTHORITY saknas");
+        options.Audience = Environment.GetEnvironmentVariable("AUTH_AUDIENCE") 
+                            ?? throw new InvalidOperationException("AUTH_AUDIENCE saknas");
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
             ValidateAudience = true,
             ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
+            ValidateIssuerSigningKey = true
         };
     });
 
+// Bygg applikationen
 var app = builder.Build();
 
-// Add middleware for auth and country restriction
+// Lägg till landrestriktioner via middleware
 app.UseMiddleware<CountryRestrictionMiddleware>();
+
+// Lägg till autentisering och auktorisering
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Map endpoints
+// Endpoint för att visa instansinformation
 app.MapGet("/instance", () =>
 {
     string instanceId = Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID") ?? "Instance ID not found";
@@ -40,13 +47,15 @@ app.MapGet("/instance", () =>
     return Results.Ok(new { source = appName, InstanceId = instanceId });
 });
 
+// Endpoint för att visa inkommande headers
 app.MapGet("/show-headers", async (HttpContext context) =>
 {
     var headers = context.Request.Headers;
     return Results.Json(headers);
 });
 
-// Protect reverse proxy with authorization
+// Lägg till proxy med krav på autentisering
 app.MapReverseProxy().RequireAuthorization();
 
+// Kör applikationen
 app.Run();
